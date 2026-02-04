@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-generator
+  labels:
+    app: log-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-generator
+  template:
+    metadata:
+      labels:
+        app: log-generator
+    spec:
+      containers:
+      - name: log-generator
+        image: busybox
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          while true; do
+            echo "$(date) INFO: Food API - Order processing started for order #$((RANDOM % 1000))"
+            sleep 2
+            echo "$(date) INFO: Food API - Database connection established"
+            sleep 1
+            echo "$(date) INFO: Food API - Validating order data"
+            sleep 1
+            if [ $((RANDOM % 10)) -eq 0 ]; then
+              echo "$(date) ERROR: Food API - Failed to process order: Database timeout"
+            else
+              echo "$(date) INFO: Food API - Order processed successfully"
+            fi
+            sleep 3
+            echo "$(date) INFO: Food API - Crop monitoring data updated for farm #$((RANDOM % 50))"
+            sleep 2
+            echo "$(date) INFO: Food API - Weather data synchronized"
+            sleep 1
+            if [ $((RANDOM % 20)) -eq 0 ]; then
+              echo "$(date) WARN: Food API - High temperature detected in greenhouse #$((RANDOM % 10))"
+            fi
+            sleep 5
+          done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agriculture-logs
+  labels:
+    app: agriculture-logs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agriculture-logs
+  template:
+    metadata:
+      labels:
+        app: agriculture-logs
+    spec:
+      containers:
+      - name: agriculture-logs
+        image: busybox
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          while true; do
+            echo "$(date) INFO: Agriculture System - Soil moisture level: $((RANDOM % 100))%"
+            sleep 3
+            echo "$(date) INFO: Agriculture System - Irrigation system activated for field #$((RANDOM % 20))"
+            sleep 2
+            if [ $((RANDOM % 15)) -eq 0 ]; then
+              echo "$(date) ERROR: Agriculture System - Sensor malfunction detected in field #$((RANDOM % 20))"
+            fi
+            sleep 4
+            echo "$(date) INFO: Agriculture System - Harvest prediction updated: $((RANDOM % 1000)) kg expected"
+            sleep 3
+            echo "$(date) INFO: Agriculture System - Fertilizer application scheduled"
+            sleep 2
+            if [ $((RANDOM % 25)) -eq 0 ]; then
+              echo "$(date) WARN: Agriculture System - Low water pressure in irrigation zone #$((RANDOM % 5))"
+            fi
+            sleep 6
+          done

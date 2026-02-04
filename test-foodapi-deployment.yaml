@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foodapi-test
+  labels:
+    app: foodapi-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foodapi-test
+  template:
+    metadata:
+      labels:
+        app: foodapi-test
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: foodapi
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        command: ["/bin/sh"]
+        args: ["-c", "echo 'Food API Mock Running' && nginx -g 'daemon off;'"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foodapi-test
+  labels:
+    app: foodapi-test
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: foodapi-test
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: foodapi-test
+  labels:
+    app: foodapi-test
+spec:
+  selector:
+    matchLabels:
+      app: foodapi-test
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s

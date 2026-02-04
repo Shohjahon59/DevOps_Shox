@@ -1,0 +1,163 @@
+{
+    "dashboard": {
+        "id": null,
+        "title": "Food API - Logs Dashboard",
+        "tags": [
+            "loki",
+            "logs",
+            "food-api",
+            "agriculture"
+        ],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+            {
+                "id": 1,
+                "title": "Log Volume Over Time",
+                "type": "timeseries",
+                "targets": [
+                    {
+                        "expr": "sum(count_over_time({app=\"log-generator\"}[1m]))",
+                        "refId": "A",
+                        "legendFormat": "Food API Logs"
+                    },
+                    {
+                        "expr": "sum(count_over_time({app=\"agriculture-logs\"}[1m]))",
+                        "refId": "B",
+                        "legendFormat": "Agriculture System Logs"
+                    }
+                ],
+                "gridPos": {
+                    "h": 8,
+                    "w": 24,
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            {
+                "id": 2,
+                "title": "Log Levels Distribution",
+                "type": "piechart",
+                "targets": [
+                    {
+                        "expr": "sum by (level) (count_over_time({app=~\"log-generator|agriculture-logs\"} |~ \"INFO\" [1h]))",
+                        "refId": "A",
+                        "legendFormat": "INFO"
+                    },
+                    {
+                        "expr": "sum by (level) (count_over_time({app=~\"log-generator|agriculture-logs\"} |~ \"ERROR\" [1h]))",
+                        "refId": "B",
+                        "legendFormat": "ERROR"
+                    },
+                    {
+                        "expr": "sum by (level) (count_over_time({app=~\"log-generator|agriculture-logs\"} |~ \"WARN\" [1h]))",
+                        "refId": "C",
+                        "legendFormat": "WARN"
+                    }
+                ],
+                "gridPos": {
+                    "h": 8,
+                    "w": 8,
+                    "x": 0,
+                    "y": 8
+                }
+            },
+            {
+                "id": 3,
+                "title": "Error Rate",
+                "type": "stat",
+                "targets": [
+                    {
+                        "expr": "sum(rate({app=~\"log-generator|agriculture-logs\"} |~ \"ERROR\" [5m]))",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "thresholds"
+                        },
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 0.1
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 0.5
+                                }
+                            ]
+                        }
+                    }
+                },
+                "gridPos": {
+                    "h": 8,
+                    "w": 8,
+                    "x": 8,
+                    "y": 8
+                }
+            },
+            {
+                "id": 4,
+                "title": "Recent Logs",
+                "type": "logs",
+                "targets": [
+                    {
+                        "expr": "{app=~\"log-generator|agriculture-logs\"}",
+                        "refId": "A"
+                    }
+                ],
+                "gridPos": {
+                    "h": 8,
+                    "w": 8,
+                    "x": 16,
+                    "y": 8
+                }
+            },
+            {
+                "id": 5,
+                "title": "Food API - Order Processing Logs",
+                "type": "logs",
+                "targets": [
+                    {
+                        "expr": "{app=\"log-generator\"} |~ \"Order\"",
+                        "refId": "A"
+                    }
+                ],
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 16
+                }
+            },
+            {
+                "id": 6,
+                "title": "Agriculture System - Sensor Logs",
+                "type": "logs",
+                "targets": [
+                    {
+                        "expr": "{app=\"agriculture-logs\"} |~ \"Sensor|moisture|Irrigation\"",
+                        "refId": "A"
+                    }
+                ],
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 16
+                }
+            }
+        ],
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "refresh": "5s"
+    }
+}
