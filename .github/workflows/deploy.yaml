@@ -1,0 +1,46 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  DOCKER_USERNAME: rashidov2005
+  IMAGE_NAME: foodapi
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build & Test
+        run: |
+          dotnet restore foodapi/FoodApi/FoodApi.csproj
+          dotnet build foodapi/FoodApi/FoodApi.csproj --configuration Release --no-restore
+
+      - name: Docker Build & Push
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ env.DOCKER_USERNAME }} --password-stdin
+          cd foodapi
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          docker build -t ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA} .
+          docker tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA} ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}
+          docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Update Helm & Commit
+        run: |
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          sed -i "s|tag: .*|tag: \"${SHORT_SHA}\"|g" foodapi-chart/values.yaml
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add foodapi-chart/values.yaml
+          git diff --staged --quiet || git commit -m "update image tag to ${SHORT_SHA}"
+          git push
