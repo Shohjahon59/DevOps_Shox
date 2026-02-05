@@ -10,8 +10,11 @@ env:
   DOCKER_REGISTRY: docker.io
   DOCKER_USERNAME: rashidov2005
   IMAGE_NAME: foodapi
-  DOCKER_CONTEXT: ./foodapi
-  DOCKERFILE_PATH: ./foodapi/Dockerfile
+
+  # ✅ Sizdagi real strukturaga mos
+  DOCKER_CONTEXT: ./foodapi/FoodApi
+  DOCKERFILE_PATH: ./foodapi/FoodApi/Dockerfile
+  CSPROJ_PATH: foodapi/FoodApi/FoodApi.csproj
 
 jobs:
   test:
@@ -19,34 +22,43 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-      
-      - name: Restore dependencies
-        run: dotnet restore foodapi/FoodApi/FoodApi.csproj
-      
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore ${{ env.CSPROJ_PATH }}
+
       - name: Build
-        run: dotnet build foodapi/FoodApi/FoodApi.csproj --configuration Release --no-restore
-      
-      - name: Test
-        run: dotnet test foodapi/FoodApi/FoodApi.csproj --no-restore --verbosity normal || echo "No tests found"
+        run: dotnet build ${{ env.CSPROJ_PATH }} -c Release --no-restore
+
+      # Test project bo'lmasa ham pipeline yiqilmasin
+      - name: Test (optional)
+        run: dotnet test ${{ env.CSPROJ_PATH }} -c Release --no-build --verbosity normal || echo "No tests found"
 
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
       short-sha: ${{ steps.short-sha.outputs.sha }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - name: Debug paths
+        run: |
+          pwd
+          ls -la
+          ls -la foodapi || true
+          ls -la foodapi/FoodApi || true
+          ls -la foodapi/FoodApi/Dockerfile || true
+
       - name: Get short SHA
         id: short-sha
         run: echo "sha=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
@@ -82,7 +94,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-to-argocd:
+  update-helm-values:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -90,53 +102,36 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout current repo
+      - name: Checkout repo (with write permissions)
         uses: actions/checkout@v4
         with:
-          path: main-repo
-      
-      - name: Update Helm values in current repo
+          fetch-depth: 0
+
+      - name: Update Helm values.yaml image.tag
         run: |
-          cd main-repo
+          set -e
           SHORT_SHA="${{ needs.build-and-push.outputs.short-sha }}"
           FILE="foodapi-chart/values.yaml"
-          
+
           if [ ! -f "$FILE" ]; then
             echo "ERROR: $FILE not found"
+            ls -la
             exit 1
           fi
-          
-          # Update image tag
-          sed -i "s|tag: .*|tag: \"${SHORT_SHA}\"|g" "$FILE"
-          
-          echo "Updated image tag to ${SHORT_SHA}"
-          cat "$FILE" | grep -A 3 "image:"
-      
-      - name: Commit and push to main repo
+
+          # ✅ Sizning values.yaml formatiga mos (tag: "latest")
+          sed -i.bak -E "s|^( *tag: ).*|\1\"${SHORT_SHA}\"|g" "$FILE"
+          rm -f "${FILE}.bak"
+
+          echo "Updated image.tag to ${SHORT_SHA}"
+          grep -nE "image:|tag:" "$FILE" | head -n 30
+
+      - name: Commit & push changes
         run: |
-          cd main-repo
+          set -e
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          
+
           git add foodapi-chart/values.yaml
           git diff --staged --quiet || git commit -m "chore: update image tag to ${{ needs.build-and-push.outputs.short-sha }}"
-          git push || echo "No changes to push"
-
-  deploy-with-kubectl:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Deploy notification
-        run: |
-          echo "🚀 Deployment ready!"
-          echo "Image: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.short-sha }}"
-          echo ""
-          echo "To deploy manually, run:"
-          echo "helm upgrade --install foodapi ./foodapi-chart \\"
-          echo "  --set image.tag=${{ needs.build-and-push.outputs.short-sha }} \\"
-          echo "  --namespace default"
+          git push
