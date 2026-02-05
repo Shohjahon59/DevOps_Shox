@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: rashidov2005/foodapi
-  pullPolicy: IfNotPresent
+  pullPolicy: Never
   tag: "latest"
 
 nameOverride: ""
