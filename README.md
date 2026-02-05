@@ -85,7 +85,7 @@ cd DevOps_Shox
 ### Grafana Dashboards
 Access comprehensive monitoring dashboards:
 
-![Grafana Logs Dashboard](https://via.placeholder.com/800x400/2F3349/FFFFFF?text=Grafana+Logs+Dashboard)
+
 *Real-time log analysis with Loki integration showing error rates, log volumes, and service health*
 
 ### Key Metrics Monitored
@@ -107,7 +107,8 @@ foodapi_crops_monitored                         # Crops being monitored
 ### ArgoCD Application Management
 Automated deployment and synchronization:
 
-![ArgoCD Dashboard](https://via.placeholder.com/800x400/1B2332/FFFFFF?text=ArgoCD+Application+Dashboard)
+![telegram-cloud-photo-size-2-5195433483856188351-y](https://github.com/user-attachments/assets/b5fc10fe-f9e7-48ac-a4b7-7d31e3671415)
+
 *ArgoCD dashboard showing application health, sync status, and resource tree*
 
 ### Features
@@ -121,7 +122,8 @@ Automated deployment and synchronization:
 ### Centralized Logging with Loki
 Comprehensive log aggregation and analysis:
 
-![Loki Logs Volume](https://via.placeholder.com/800x300/1A1A1A/00FF00?text=Log+Volume+Analytics)
+![telegram-cloud-photo-size-2-5195433483856188313-y](https://github.com/user-attachments/assets/9fd28ef7-4a76-46a4-8ffc-c165fd229f62)
+
 *Log volume analytics showing error rates, warnings, and info logs over time*
 
 ### LogQL Queries
