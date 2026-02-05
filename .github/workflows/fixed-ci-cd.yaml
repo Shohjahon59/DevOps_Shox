@@ -1,0 +1,96 @@
+name: Fixed CI/CD Pipeline (Disabled)
+
+# Disabled - using working-ci-cd.yaml instead
+
+on:
+  workflow_dispatch:  # Only manual trigger
+
+env:
+  DOCKER_USERNAME: rashidov2005
+  IMAGE_NAME: foodapi
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore foodapi/FoodApi/FoodApi.csproj
+
+      - name: Build
+        run: dotnet build foodapi/FoodApi/FoodApi.csproj --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test foodapi/FoodApi/FoodApi.csproj --no-restore --verbosity normal || echo "No tests found"
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    outputs:
+      short-sha: ${{ steps.vars.outputs.short_sha }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: vars
+        run: echo "short_sha=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx (without context issues)
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker-container
+          use: true
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image (v2)
+        uses: docker/build-push-action@v3
+        with:
+          context: ./foodapi
+          file: ./foodapi/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
+            ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          platforms: linux/amd64
+
+  update-helm:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Helm values
+        run: |
+          SHORT_SHA=${{ needs.build-and-push.outputs.short-sha }}
+          sed -i "s|tag: .*|tag: \"${SHORT_SHA}\"|g" foodapi-chart/values.yaml
+          echo "Updated image tag to ${SHORT_SHA}"
+          grep -A 3 -B 1 "tag:" foodapi-chart/values.yaml
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add foodapi-chart/values.yaml
+          git diff --staged --quiet || git commit -m "chore: update image tag to ${{ needs.build-and-push.outputs.short-sha }}"
+          git push

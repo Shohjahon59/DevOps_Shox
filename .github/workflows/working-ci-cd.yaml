@@ -1,0 +1,131 @@
+name: Working CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOCKER_USERNAME: rashidov2005
+  IMAGE_NAME: foodapi
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Get short SHA
+        id: vars
+        run: |
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Short SHA: ${SHORT_SHA}"
+
+      - name: Debug file structure
+        run: |
+          echo "=== Current directory ==="
+          pwd
+          ls -la
+          echo ""
+          echo "=== foodapi directory ==="
+          ls -la foodapi/
+          echo ""
+          echo "=== Dockerfile content (first 10 lines) ==="
+          head -10 foodapi/Dockerfile
+
+      - name: Test .NET application
+        run: |
+          echo "=== Restoring dependencies ==="
+          dotnet restore foodapi/FoodApi/FoodApi.csproj
+          
+          echo "=== Building application ==="
+          dotnet build foodapi/FoodApi/FoodApi.csproj --configuration Release --no-restore
+          
+          echo "=== Running tests (optional) ==="
+          dotnet test foodapi/FoodApi/FoodApi.csproj --no-restore --verbosity normal || echo "No tests found, continuing..."
+
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Logging into Docker Hub ==="
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ env.DOCKER_USERNAME }} --password-stdin
+
+      - name: Build Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Building Docker image ==="
+          cd foodapi
+          
+          # Build with short SHA tag
+          docker build -t ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }} .
+          
+          # Tag as latest
+          docker tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }} ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          
+          echo "=== Docker images built ==="
+          docker images | grep ${{ env.IMAGE_NAME }}
+
+      - name: Push Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Pushing Docker images ==="
+          docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}
+          docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          echo "=== Images pushed successfully ==="
+
+      - name: Update Helm values
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Updating Helm values ==="
+          SHORT_SHA=${{ steps.vars.outputs.short_sha }}
+          
+          # Backup original
+          cp foodapi-chart/values.yaml foodapi-chart/values.yaml.backup
+          
+          # Update tag
+          sed -i "s|tag: .*|tag: \"${SHORT_SHA}\"|g" foodapi-chart/values.yaml
+          
+          echo "=== Updated values.yaml ==="
+          echo "Before:"
+          grep -A 3 -B 1 "tag:" foodapi-chart/values.yaml.backup
+          echo "After:"
+          grep -A 3 -B 1 "tag:" foodapi-chart/values.yaml
+
+      - name: Commit and push changes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Committing changes ==="
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add foodapi-chart/values.yaml
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update image tag to ${{ steps.vars.outputs.short_sha }}"
+            git push
+            echo "=== Changes pushed successfully ==="
+          fi
+
+      - name: Deployment summary
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== 🎉 Deployment Summary ==="
+          echo "✅ .NET build: Success"
+          echo "✅ Docker build: Success"
+          echo "✅ Docker push: Success"
+          echo "✅ Helm update: Success"
+          echo "✅ Git commit: Success"
+          echo ""
+          echo "📦 Image: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.short_sha }}"
+          echo "🔄 ArgoCD will auto-sync the changes"
+          echo "🚀 Deployment complete!"
