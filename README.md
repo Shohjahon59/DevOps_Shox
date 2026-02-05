@@ -85,6 +85,7 @@ cd DevOps_Shox
 ### Grafana Dashboards
 Access comprehensive monitoring dashboards:
 
+![telegram-cloud-photo-size-2-5195433483856188321-y](https://github.com/user-attachments/assets/d6a6b158-fe2c-484d-a936-30560072e4b4)
 
 *Real-time log analysis with Loki integration showing error rates, log volumes, and service health*
 
