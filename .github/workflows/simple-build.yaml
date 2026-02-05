@@ -1,0 +1,47 @@
+name: Simple Build
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build & Test
+        run: |
+          dotnet restore foodapi/FoodApi/FoodApi.csproj
+          dotnet build foodapi/FoodApi/FoodApi.csproj --configuration Release --no-restore
+          echo "✅ .NET build successful"
+
+      - name: Build Docker Image (Local)
+        run: |
+          cd foodapi
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          docker build -t foodapi:${SHORT_SHA} .
+          echo "✅ Docker build successful"
+          echo "📦 Image: foodapi:${SHORT_SHA}"
+          
+      - name: Deployment Instructions
+        run: |
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          echo ""
+          echo "🚀 Build completed successfully!"
+          echo ""
+          echo "📋 To deploy manually:"
+          echo "1. Build image locally:"
+          echo "   docker build -t rashidov2005/foodapi:${SHORT_SHA} foodapi/"
+          echo ""
+          echo "2. Push to Docker Hub:"
+          echo "   docker push rashidov2005/foodapi:${SHORT_SHA}"
+          echo ""
+          echo "3. Deploy to Kubernetes:"
+          echo "   ./deploy.sh ${SHORT_SHA}"

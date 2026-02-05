@@ -1,8 +1,10 @@
-name: CI/CD
+name: CI/CD (Disabled - Docker Hub timeout)
+
+# Disabled due to Docker Hub 504 Gateway Timeout
+# Using simple-build.yaml instead
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # Manual trigger only
 
 env:
   DOCKER_USERNAME: rashidov2005
@@ -27,13 +29,32 @@ jobs:
 
       - name: Docker Build & Push
         run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ env.DOCKER_USERNAME }} --password-stdin
+          # Login with retry
+          for i in {1..3}; do
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ env.DOCKER_USERNAME }} --password-stdin && break
+            echo "Login attempt $i failed, retrying..."
+            sleep 10
+          done
+          
           cd foodapi
           SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          
+          # Build image
           docker build -t ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA} .
           docker tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA} ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}
-          docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Push with retry
+          for i in {1..3}; do
+            docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA} && break
+            echo "Push attempt $i failed, retrying..."
+            sleep 15
+          done
+          
+          for i in {1..3}; do
+            docker push ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest && break
+            echo "Push latest attempt $i failed, retrying..."
+            sleep 15
+          done
 
       - name: Show deployment info
         run: |
@@ -41,7 +62,5 @@ jobs:
           echo "🚀 Docker image built and pushed successfully!"
           echo "📦 Image: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
           echo ""
-          echo "🔄 To deploy, update foodapi-chart/values.yaml:"
-          echo "   tag: \"${SHORT_SHA}\""
-          echo ""
-          echo "Or run: helm upgrade foodapi ./foodapi-chart --set image.tag=${SHORT_SHA}"
+          echo "🔄 To deploy, run:"
+          echo "   ./deploy.sh ${SHORT_SHA}"

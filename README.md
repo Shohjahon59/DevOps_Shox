@@ -1,6 +1,6 @@
 # 🌾 Food API - DevOps Project
 
-Simple CI/CD pipeline for Agriculture Management System.
+Simple DevOps setup for Agriculture Management System.
 
 ## 🚀 Quick Start
 
@@ -8,8 +8,11 @@ Simple CI/CD pipeline for Agriculture Management System.
 # Setup everything
 ./setup.sh
 
-# Deploy app manually  
-./deploy.sh [tag]
+# Build and deploy locally
+./build-and-deploy.sh
+
+# Or deploy specific tag
+./deploy.sh abc123
 ```
 
 ## 📊 Access
@@ -28,27 +31,35 @@ kubectl port-forward svc/foodapi 8080:80
 # http://localhost:8080/health
 ```
 
-## 🔧 CI/CD Setup
+## 🔧 Development Workflow
 
-1. Add GitHub Secret: `DOCKERHUB_TOKEN`
-2. Push to main → Docker image builds automatically
-3. Deploy manually: `./deploy.sh abc123`
+```bash
+# 1. Make changes to code
+vim foodapi/FoodApi/Program.cs
+
+# 2. Build, test, and deploy
+./build-and-deploy.sh
+
+# 3. Check deployment
+kubectl get pods -l app.kubernetes.io/name=foodapi
+```
 
 ## 📁 Structure
 
 ```
-├── .github/workflows/deploy.yaml    # CI builds Docker image
-├── foodapi/                         # .NET API + Dockerfile  
-├── foodapi-chart/                   # Helm chart
-├── setup.sh                         # Setup everything
-├── deploy.sh                        # Deploy with tag
-└── argocd/                          # ArgoCD config
+├── .github/workflows/simple-build.yaml  # CI (build only)
+├── foodapi/                             # .NET API + Dockerfile  
+├── foodapi-chart/                       # Helm chart
+├── setup.sh                             # Setup everything
+├── build-and-deploy.sh                  # Local build & deploy
+├── deploy.sh                            # Deploy with tag
+└── argocd/                              # ArgoCD config
 ```
 
 ## 🎯 Workflow
 
 ```
-Push → GitHub Actions → Docker Build → Docker Hub
-                                    ↓
-Manual Deploy ← Helm ← ./deploy.sh [tag]
+Local Development → build-and-deploy.sh → Docker → Kubernetes
+                                       ↓
+GitHub Push → Simple Build (CI) → Manual Deploy
 ```
