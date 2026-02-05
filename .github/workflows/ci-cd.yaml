@@ -10,10 +10,8 @@ env:
   DOCKER_REGISTRY: docker.io
   DOCKER_USERNAME: rashidov2005
   IMAGE_NAME: foodapi
-
-  # ✅ Sizdagi real strukturaga mos
-  DOCKER_CONTEXT: ./foodapi/FoodApi
-  DOCKERFILE_PATH: ./foodapi/FoodApi/Dockerfile
+  DOCKER_CONTEXT: ./foodapi
+  DOCKERFILE_PATH: ./foodapi/Dockerfile
   CSPROJ_PATH: foodapi/FoodApi/FoodApi.csproj
 
 jobs:
@@ -55,9 +53,12 @@ jobs:
         run: |
           pwd
           ls -la
-          ls -la foodapi || true
-          ls -la foodapi/FoodApi || true
-          ls -la foodapi/FoodApi/Dockerfile || true
+          echo "Checking foodapi directory:"
+          ls -la foodapi/ || echo "foodapi directory not found"
+          echo "Checking Dockerfile:"
+          ls -la foodapi/Dockerfile || echo "Dockerfile not found"
+          echo "Checking FoodApi project:"
+          ls -la foodapi/FoodApi/ || echo "FoodApi directory not found"
 
       - name: Get short SHA
         id: short-sha
@@ -84,7 +85,7 @@ jobs:
             type=ref,event=pr
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: ${{ env.DOCKER_CONTEXT }}
           file: ${{ env.DOCKERFILE_PATH }}
@@ -93,6 +94,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
   update-helm-values:
     needs: build-and-push
